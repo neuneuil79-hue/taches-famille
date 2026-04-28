@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Tâches de la famille</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --accent:#1D9E75;--accent-light:#E1F5EE;--accent-dark:#085041;
+  --danger:#D85A30;--danger-light:#FAECE7;--danger-dark:#993C1D;
+  --warn:#BA7517;--warn-light:#FAEEDA;--warn-dark:#633806;
+  --purple:#7F77DD;--purple-light:#EDE9FE;--purple-dark:#4C1D95;
+  --bg:#F8F7F4;--surface:#FFFFFF;--surface2:#F1EFE8;
+  --border:rgba(0,0,0,0.09);--border-mid:rgba(0,0,0,0.15);
+  --text:#1a1a18;--text2:#5a5a56;--text3:#9a9a96;
+  --radius:12px;--radius-sm:8px;--radius-pill:99px;
+  --shadow:0 2px 12px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg:0 8px 32px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.06);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#141412;--surface:#1e1e1b;--surface2:#2a2a26;
+  --border:rgba(255,255,255,0.08);--border-mid:rgba(255,255,255,0.15);
+  --text:#f0efe8;--text2:#a0a09a;--text3:#606058;
+  --accent-light:#0a3d2c;--danger-light:#3d1a0d;--warn-light:#3d2a08;--purple-light:#1e1a3d;
+  --accent-dark:#9FE1CB;--danger-dark:#F0997B;--warn-dark:#FAC775;--purple-dark:#c4bfff;
+}}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6;}
+#app-loader{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#app-loader.hidden{display:none;}
+.loader-logo{display:flex;align-items:center;gap:10px;}
+.loader-logo-icon{width:44px;height:44px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;}
+.loader-logo-icon svg{width:24px;height:24px;fill:white;}
+.loader-title{font-size:22px;font-weight:600;color:var(--accent);}
+.loader-dots{display:flex;gap:6px;}
+.loader-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:0.3;animation:ldot 1.2s infinite;}
+.loader-dot:nth-child(2){animation-delay:0.2s;}
+.loader-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes ldot{0%,80%,100%{opacity:0.3;}40%{opacity:1;}}
+.loader-msg{font-size:13px;color:var(--text3);text-align:center;max-width:300px;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;}
+.overlay.hidden{display:none;}
+.modal{background:var(--surface);border-radius:var(--radius);padding:24px;width:100%;max-width:440px;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:16px;font-weight:600;margin-bottom:16px;}
+.modal-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);padding:8px 16px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;}
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+#login-screen.hidden{display:none;}
+#pin-screen{position:fixed;inset:0;background:var(--bg);z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+#pin-screen.hidden{display:none;}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.login-logo-icon{width:44px;height:44px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;}
+.login-logo-icon svg{width:24px;height:24px;fill:white;}
+.login-title{font-size:22px;font-weight:600;color:var(--accent);}
+.login-sub{font-size:14px;color:var(--text2);margin-bottom:28px;text-align:center;}
+.login-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:14px;}
+.login-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:340px;}
+.login-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.15s,box-shadow 0.15s;}
+.login-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
+.login-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;}
+.login-name{font-size:15px;font-weight:600;}
+.login-role{font-size:11px;padding:2px 9px;border-radius:var(--radius-pill);font-weight:500;}
+.role-admin{background:var(--warn-light);color:var(--warn-dark);}
+.role-member{background:var(--surface2);color:var(--text2);}
+.pin-title{font-size:18px;font-weight:600;margin-bottom:6px;}
+.pin-sub{font-size:13px;color:var(--text2);margin-bottom:20px;}
+.pin-wrap{display:flex;gap:8px;margin-bottom:12px;}
+.pin-d{width:46px;height:54px;border-radius:var(--radius-sm);border:1.5px solid var(--border-mid);background:var(--bg);font-size:22px;font-weight:600;text-align:center;font-family:'DM Mono',monospace;color:var(--text);outline:none;}
+.pin-d:focus{border-color:var(--accent);}
+.pin-error{font-size:13px;color:var(--danger);min-height:18px;margin-bottom:10px;}
+.pin-back{font-size:13px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;text-decoration:underline;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.header-inner{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:54px;}
+.logo{font-size:15px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:8px;}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.logo-icon svg{width:16px;height:16px;fill:white;}
+.header-right{display:flex;align-items:center;gap:6px;}
+.header-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
+.header-username{font-size:13px;font-weight:500;color:var(--text2);}
+.logout-btn{font-size:12px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;padding:4px 10px;}
+.logout-btn:hover{color:var(--danger);border-color:var(--danger);}
+.sync-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);padding:3px 8px;border-radius:var(--radius-pill);background:var(--surface2);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.sync-dot.syncing{animation:ldot 1s infinite;}
+.bell-btn{position:relative;background:none;border:none;cursor:pointer;padding:5px;border-radius:50%;display:none;align-items:center;justify-content:center;}
+.bell-btn:hover{background:var(--surface2);}
+.bell-btn svg{width:22px;height:22px;fill:none;stroke:var(--text2);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.bell-badge{position:absolute;top:0;right:0;min-width:16px;height:16px;background:var(--danger);color:#fff;border-radius:var(--radius-pill);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--surface);}
+.bell-badge.hidden{display:none;}
+.notif-backdrop{position:fixed;inset:0;z-index:180;background:rgba(0,0,0,0.3);}
+.notif-backdrop.hidden{display:none;}
+.notif-panel{position:fixed;top:54px;right:0;width:min(360px,100vw);height:calc(100vh - 54px);background:var(--surface);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;z-index:181;}
+.notif-panel.hidden{display:none;}
+.notif-hdr{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.notif-hdr-title{font-size:15px;font-weight:600;}
+.notif-hdr-right{display:flex;align-items:center;gap:8px;}
+.notif-mark-btn{font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500;}
+.notif-close{background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1;padding:0 4px;}
+.notif-body{flex:1;overflow-y:auto;padding:8px;}
+.notif-item{display:flex;gap:12px;padding:12px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:4px;border-left:3px solid transparent;transition:background 0.12s;}
+.notif-item:hover{background:var(--surface2);}
+.notif-item.unread{background:var(--accent-light);border-left-color:var(--accent);}
+.notif-ico{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--surface2);}
+.notif-cnt{flex:1;min-width:0;}
+.notif-msg{font-size:13px;color:var(--text);line-height:1.4;}
+.notif-time{font-size:11px;color:var(--text3);margin-top:3px;}
+.notif-empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:13px;}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;}
+.nav-inner{max-width:720px;margin:0 auto;display:flex;overflow-x:auto;scrollbar-width:none;}
+.nav-inner::-webkit-scrollbar{display:none;}
+.nav-tab{padding:12px 14px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+main{max-width:720px;margin:0 auto;padding:24px 20px 80px;}
+.section{display:none;}
+.section.visible{display:block;}
+.section-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+.period-switcher{display:flex;gap:4px;margin-bottom:20px;background:var(--surface2);padding:4px;border-radius:var(--radius-sm);width:fit-content;}
+.period-btn{padding:6px 14px;border-radius:6px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.period-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+.goal-banner{border-radius:var(--radius);padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);}
+.goal-banner.g-reward{background:var(--accent-light);border:1px solid #9FE1CB;}
+.goal-banner.g-danger{background:var(--danger-light);border:1px solid #F0997B;}
+.goal-banner.g-warn{background:var(--warn-light);border:1px solid #F5C97A;}
+.goal-banner.g-neutral{background:var(--surface2);border:1px solid var(--border);}
+.goal-icon{font-size:26px;flex-shrink:0;}
+.goal-text{flex:1;min-width:0;}
+.goal-title{font-size:14px;font-weight:600;}
+.goal-sub{font-size:12px;color:var(--text2);margin-top:1px;}
+.goal-bar-wrap{height:6px;background:rgba(0,0,0,0.08);border-radius:3px;margin-top:8px;}
+.goal-bar{height:6px;border-radius:3px;transition:width 0.6s;}
+.goal-edit-btn{font-size:12px;font-weight:500;color:var(--text3);background:none;border:1px solid var(--border-mid);border-radius:var(--radius-pill);padding:5px 10px;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.metric-label{font-size:12px;color:var(--text2);margin-bottom:6px;}
+.metric-val{font-size:28px;font-weight:600;line-height:1;}
+.metric-val.danger{color:var(--danger);}
+.metric-val.accent{color:var(--accent);}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:28px;}
+.member-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 14px;box-shadow:var(--shadow);}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;margin-bottom:10px;}
+.member-name{font-size:14px;font-weight:600;}
+.member-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.score-bar-bg{height:4px;background:var(--surface2);border-radius:2px;margin-top:10px;}
+.score-bar{height:4px;border-radius:2px;transition:width 0.5s;}
+.member-goal-status{font-size:11px;font-weight:600;margin-top:5px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;}
+.chart-card-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:16px;}
+.pie-layout{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+.pie-canvas-wrap{width:160px;height:160px;flex-shrink:0;}
+.pie-legend{display:flex;flex-direction:column;gap:8px;}
+.pie-legend-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
+.pie-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.task-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.task-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:flex-start;gap:12px;box-shadow:var(--shadow);}
+.task-item.done{opacity:0.5;}
+.task-item.overdue{border-left:3px solid var(--danger);}
+.check-btn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border-mid);flex-shrink:0;cursor:pointer;background:transparent;display:flex;align-items:center;justify-content:center;transition:all 0.15s;margin-top:1px;}
+.check-btn:hover{border-color:var(--accent);}
+.check-btn.checked{background:var(--accent);border-color:var(--accent);}
+.check-btn.checked::after{content:'';display:block;width:9px;height:6px;border-left:2px solid white;border-bottom:2px solid white;transform:rotate(-45deg) translate(1px,-1px);}
+.task-info{flex:1;min-width:0;}
+.task-name{font-size:14px;font-weight:500;}
+.task-desc{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5;}
+.task-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:var(--radius-pill);}
+.tag-ok{background:var(--accent-light);color:var(--accent-dark);}
+.tag-danger{background:var(--danger-light);color:var(--danger-dark);}
+.tag-neutral{background:var(--surface2);color:var(--text2);}
+.tag-pool{background:var(--purple-light);color:var(--purple-dark);}
+.tag-daily{background:#FFF3E0;color:#E65100;}
+.tag-occasional{background:#F0F4FF;color:#3730A3;}
+.timestamp{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace;}
+.pts-col{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+.pts-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-pill);font-family:'DM Mono',monospace;}
+.pts-pos{background:var(--accent-light);color:var(--accent-dark);}
+.pts-neg{background:var(--danger-light);color:var(--danger-dark);}
+.task-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.action-btn{font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-family:inherit;}
+.btn-claim{background:var(--accent);color:white;}
+.btn-assign{background:var(--warn-light);color:var(--warn-dark);}
+.btn-unassign{background:var(--danger-light);color:var(--danger-dark);}
+.btn-edit-task{background:var(--surface2);color:var(--text2);border:1px solid var(--border-mid)!important;}
+.assign-panel{background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;margin-top:8px;display:none;border:1px solid var(--border);}
+.assign-panel.open{display:block;}
+.assign-select{width:100%;background:var(--bg);border:1px solid var(--border-mid);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;font-family:inherit;color:var(--text);margin-bottom:8px;outline:none;}
+.assign-confirm{background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);padding:6px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:20px;}
+.form-card h3{font-size:15px;font-weight:600;margin-bottom:16px;}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+input[type=text],input[type=number],input[type=password],select,textarea{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--border-mid);border-radius:var(--radius-sm);padding:9px 12px;font-size:14px;font-family:inherit;color:var(--text);outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+textarea{resize:vertical;line-height:1.5;}
+.btn-primary{background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);padding:9px 20px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+.btn-primary:hover{opacity:0.88;}
+.char-count{font-size:11px;color:var(--text3);text-align:right;margin-top:2px;}
+.leaderboard{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+.lb-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);}
+.lb-row:first-child{border-color:#BA7517;}
+.lb-rank{font-size:20px;font-weight:700;width:30px;text-align:center;flex-shrink:0;color:var(--text3);}
+.lb-row:first-child .lb-rank{color:#BA7517;}
+.lb-info{flex:1;}
+.lb-name{font-size:14px;font-weight:600;}
+.lb-tasks{font-size:12px;color:var(--text2);}
+.lb-pts{font-size:18px;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;}
+.bonus-log{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.bonus-entry{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow);}
+.bonus-entry-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.bonus-entry-pts{font-size:14px;font-weight:600;font-family:'DM Mono',monospace;}
+.bonus-entry-note{font-size:12px;color:var(--text2);line-height:1.5;}
+.bonus-entry-meta{font-size:11px;color:var(--text3);margin-top:4px;}
+.settings-section{margin-bottom:24px;}
+.settings-section h3{font-size:14px;font-weight:600;margin-bottom:10px;}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3);}
+.empty-state .emoji{font-size:40px;margin-bottom:10px;}
+.empty-state p{font-size:14px;line-height:1.7;}
+.divider{height:1px;background:var(--border);margin:24px 0;}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 20px;border-radius:var(--radius-pill);font-size:13px;font-weight:500;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+@media(max-width:480px){.metrics{grid-template-columns:1fr 1fr;}.member-grid{grid-template-columns:1fr 1fr;}.login-grid{grid-template-columns:1fr 1fr;max-width:100%;}}
+</style>
+</head>
+<body>
+
+<div id="app-loader">
+  <div class="loader-logo"><div class="loader-logo-icon"><svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4a.75.75 0 00-1.5 0v3.25l2.25 2.25a.75.75 0 001.06-1.06L8.75 7.69V5z"/></svg></div><div class="loader-title">Tâches de la famille</div></div>
+  <div class="loader-dots"><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div></div>
+  <div class="loader-msg" id="loader-msg">Connexion à la base de données...</div>
+</div>
+
+<div id="login-screen" class="hidden">
+  <div class="login-logo"><div class="login-logo-icon"><svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4a.75.75 0 00-1.5 0v3.25l2.25 2.25a.75.75 0 001.06-1.06L8.75 7.69V5z"/></svg></div><div class="login-title">Tâches de la famille</div></div>
+  <div class="login-sub">Bienvenue ! Qui êtes-vous ?</div>
+  <div class="login-label">Sélectionnez votre profil</div>
+  <div class="login-grid" id="login-grid"></div>
+</div>
+
+<div id="pin-screen" class="hidden">
+  <div class="login-logo" style="margin-bottom:14px;"><div class="login-logo-icon"><svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4a.75.75 0 00-1.5 0v3.25l2.25 2.25a.75.75 0 001.06-1.06L8.75 7.69V5z"/></svg></div><div class="login-title">Tâches de la famille</div></div>
+  <div class="pin-title" id="pin-title">Code admin</div>
+  <div class="pin-sub">Code à 5 chiffres</div>
+  <div class="pin-wrap">
+    <input class="pin-d" id="p0" maxlength="1" type="password" inputmode="numeric" oninput="pinInput(0)"/>
+    <input class="pin-d" id="p1" maxlength="1" type="password" inputmode="numeric" oninput="pinInput(1)"/>
+    <input class="pin-d" id="p2" maxlength="1" type="password" inputmode="numeric" oninput="pinInput(2)"/>
+    <input class="pin-d" id="p3" maxlength="1" type="password" inputmode="numeric" oninput="pinInput(3)"/>
+    <input class="pin-d" id="p4" maxlength="1" type="password" inputmode="numeric" oninput="pinInput(4)"/>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <button class="pin-back" onclick="cancelPin()">← Retour</button>
+</div>
+
+<div class="overlay hidden" id="edit-task-overlay">
+  <div class="modal"><h2>Modifier la tâche</h2>
+    <input type="hidden" id="edit-task-id"/><input type="hidden" id="edit-prev-mid"/>
+    <div class="modal-row"><input type="text" id="edit-task-name" placeholder="Nom"/></div>
+    <div class="modal-row"><select id="edit-task-freq"><option value="daily">Quotidienne</option><option value="weekly">Hebdomadaire</option><option value="monthly">Mensuelle</option><option value="occasional">Occasionnelle</option></select><select id="edit-task-member"><option value="">Pool</option></select></div>
+    <div class="modal-row"><input type="number" id="edit-task-pts" placeholder="Points"/><input type="number" id="edit-task-penalty" placeholder="Malus" max="0"/></div>
+    <div class="modal-row" style="flex-direction:column;"><textarea id="edit-task-desc" rows="3" maxlength="1000" placeholder="Description" oninput="cc('edit-task-desc','edc')"></textarea><div class="char-count"><span id="edc">0</span>/1000</div></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="cm('edit-task-overlay')">Annuler</button><button class="btn-primary" onclick="saveEditTask()">Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="bonus-overlay">
+  <div class="modal"><h2>Bonus / Malus manuel</h2>
+    <div class="modal-row"><select id="bonus-mbr"><option value="">Choisir...</option></select></div>
+    <div class="modal-row"><input type="number" id="bonus-pts" placeholder="Points (+ bonus, - malus)"/></div>
+    <div class="modal-row" style="flex-direction:column;"><textarea id="bonus-note" rows="3" maxlength="500" placeholder="Motif (500 car.)" oninput="cc('bonus-note','bnc')"></textarea><div class="char-count"><span id="bnc">0</span>/500</div></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="cm('bonus-overlay')">Annuler</button><button class="btn-primary" onclick="applyBonus()">Appliquer</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="pin-change-overlay">
+  <div class="modal"><h2>Changer le code admin</h2>
+    <div class="modal-row" style="flex-direction:column;gap:4px;"><label style="font-size:13px;color:var(--text2);">Code actuel</label><input type="password" id="old-pin" maxlength="5"/></div>
+    <div class="modal-row" style="flex-direction:column;gap:4px;"><label style="font-size:13px;color:var(--text2);">Nouveau (5 chiffres)</label><input type="password" id="new-pin" maxlength="5"/></div>
+    <div class="modal-row" style="flex-direction:column;gap:4px;"><label style="font-size:13px;color:var(--text2);">Confirmer</label><input type="password" id="conf-pin" maxlength="5"/></div>
+    <div id="pin-chg-err" style="font-size:12px;color:var(--danger);min-height:16px;margin-top:4px;"></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="cm('pin-change-overlay')">Annuler</button><button class="btn-primary" onclick="saveNewPin()">Changer</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="goal-overlay">
+  <div class="modal"><h2>Objectif hebdomadaire</h2>
+    <div class="modal-row" style="flex-direction:column;gap:4px;"><label style="font-size:13px;color:var(--text2);">Membre</label><select id="goal-mbr-sel"></select></div>
+    <div class="modal-row" style="flex-direction:column;gap:4px;"><label style="font-size:13px;color:var(--text2);">Objectif pts/semaine</label><input type="number" id="goal-pts-inp" placeholder="ex: 80" min="1"/></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="cm('goal-overlay')">Annuler</button><button class="btn-primary" onclick="saveGoal()">Enregistrer</button></div>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo"><div class="logo-icon"><svg viewBox="0 0 16 16"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm.75 4a.75.75 0 00-1.5 0v3.25l2.25 2.25a.75.75 0 001.06-1.06L8.75 7.69V5z"/></svg></div>Tâches de la famille</div>
+    <div class="header-right">
+      <div class="sync-indicator" id="sync-ind" style="display:none;"><div class="sync-dot" id="sync-dot"></div><span id="sync-txt">Synchronisé</span></div>
+      <div class="header-avatar" id="hav"></div>
+      <span class="header-username" id="hun"></span>
+      <button class="bell-btn" id="bell-btn" onclick="toggleNotif()"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="bell-badge hidden" id="bell-badge">0</span></button>
+      <button class="logout-btn" onclick="logout()">Changer</button>
+    </div>
+  </div>
+</header>
+
+<div class="notif-backdrop hidden" id="nbackdrop" onclick="closeNotif()"></div>
+<div class="notif-panel hidden" id="npanel">
+  <div class="notif-hdr"><span class="notif-hdr-title">Notifications</span><div class="notif-hdr-right"><button class="notif-mark-btn" onclick="markAllRead()">Tout lu</button><button class="notif-close" onclick="closeNotif()">&#x2715;</button></div></div>
+  <div class="notif-body" id="nbody"></div>
+</div>
+
+<nav><div class="nav-inner">
+  <button class="nav-tab active" onclick="switchTab('dashboard')">Tableau de bord</button>
+  <button class="nav-tab" onclick="switchTab('pool')">Disponibles</button>
+  <button class="nav-tab" onclick="switchTab('mine')" id="tab-mine-btn">Mes tâches</button>
+  <button class="nav-tab" onclick="switchTab('add')" id="tab-add-btn" style="display:none;">+ Ajouter</button>
+  <button class="nav-tab" onclick="switchTab('ranking')">Classement</button>
+  <button class="nav-tab" onclick="switchTab('settings')" id="tab-settings-btn" style="display:none;">Admin</button>
+</div></nav>
+
+<main>
+<div id="tab-dashboard" class="section visible">
+  <div class="period-switcher"><button class="period-btn active" onclick="setPeriod('week')">Cette semaine</button><button class="period-btn" onclick="setPeriod('month')">Ce mois</button><button class="period-btn" onclick="setPeriod('all')">Total</button></div>
+  <div class="section-label" id="period-label"></div>
+  <div class="goal-banner g-neutral" id="goal-banner">
+    <div class="goal-icon" id="goal-icon">🎯</div>
+    <div class="goal-text"><div class="goal-title" id="goal-title">Objectif semaine</div><div class="goal-sub" id="goal-sub"></div><div class="goal-bar-wrap"><div class="goal-bar" id="goal-bar" style="width:0%;background:var(--accent);"></div></div></div>
+    <button class="goal-edit-btn" id="goal-edit-btn" onclick="openGoalModal()" style="display:none;">Modifier</button>
+  </div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Tâches faites</div><div class="metric-val accent" id="m-done">0</div></div>
+    <div class="metric"><div class="metric-label">Points gagnés</div><div class="metric-val" id="m-pts">0</div></div>
+    <div class="metric"><div class="metric-label">Disponibles</div><div class="metric-val" id="m-pool">0</div></div>
+    <div class="metric"><div class="metric-label">En retard</div><div class="metric-val danger" id="m-late">0</div></div>
+  </div>
+  <div class="section-label">Membres</div>
+  <div class="member-grid" id="member-grid"></div>
+  <div class="chart-card"><div class="chart-card-title" id="bar-title">Points par membre</div><div style="height:220px;"><canvas id="barChart"></canvas></div></div>
+  <div class="chart-card"><div class="chart-card-title">Évolution mensuelle</div><div style="height:200px;"><canvas id="monthChart"></canvas></div><div id="month-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;"></div></div>
+  <div class="chart-card"><div class="chart-card-title">Répartition tâches</div><div class="pie-layout"><div class="pie-canvas-wrap"><canvas id="pieChart"></canvas></div><div class="pie-legend" id="pie-legend"></div></div></div>
+</div>
+
+<div id="tab-pool" class="section"><div class="section-label">Disponibles — prenez-en une !</div><div class="task-list" id="pool-list"></div></div>
+<div id="tab-mine" class="section"><div class="section-label" id="mine-label">Mes tâches</div><div class="task-list" id="mine-list"></div></div>
+
+<div id="tab-add" class="section">
+  <div class="form-card"><h3>Nouvelle tâche</h3>
+    <div class="form-row"><input type="text" id="new-name" placeholder="Nom de la tâche"/></div>
+    <div class="form-row"><select id="new-freq"><option value="daily">Quotidienne</option><option value="weekly">Hebdomadaire</option><option value="monthly">Mensuelle</option><option value="occasional">Occasionnelle</option></select><select id="new-assign-mbr"><option value="">Pool</option></select></div>
+    <div class="form-row"><input type="number" id="new-pts" placeholder="Points (ex: 10)" min="1"/><input type="number" id="new-penalty" placeholder="Malus (ex: -5)" max="0"/></div>
+    <div class="form-row" style="flex-direction:column;"><textarea id="new-desc" rows="3" maxlength="1000" placeholder="Description" oninput="cc('new-desc','ndc')"></textarea><div class="char-count"><span id="ndc">0</span>/1000</div></div>
+    <div class="form-row"><button class="btn-primary" onclick="addTask()">Ajouter</button></div>
+  </div>
+  <div class="divider"></div>
+  <div class="form-card"><h3>Ajouter un membre</h3>
+    <div class="form-row"><input type="text" id="new-mbr-name" placeholder="Prénom"/><select id="new-mbr-color"><option value="#1D9E75">Vert</option><option value="#378ADD">Bleu</option><option value="#D85A30">Corail</option><option value="#BA7517">Ambre</option><option value="#7F77DD">Violet</option><option value="#D4537E">Rose</option></select><button class="btn-primary" onclick="addMember()">Ajouter</button></div>
+  </div>
+</div>
+
+<div id="tab-ranking" class="section">
+  <div class="section-label">Classement — semaine</div>
+  <div class="leaderboard" id="leaderboard"></div>
+  <div class="chart-card"><div class="chart-card-title">Évolution 4 semaines</div><div style="height:200px;"><canvas id="lineChart"></canvas></div><div id="line-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;"></div></div>
+</div>
+
+<div id="tab-settings" class="section">
+  <div class="settings-section"><h3>Bonus / Malus manuel</h3><p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Attribuer des points avec un motif.</p><button class="btn-primary" onclick="openBonusModal()">Ajouter un bonus / malus</button><div class="section-label" style="margin-top:20px;">Historique</div><div id="bonus-log" class="bonus-log"></div></div>
+  <div class="divider"></div>
+  <div class="settings-section"><h3>Objectifs hebdomadaires</h3><p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Définir l'objectif de chaque membre.</p><button class="btn-primary" onclick="openGoalModal()">Modifier les objectifs</button></div>
+  <div class="divider"></div>
+  <div class="settings-section"><h3>Sécurité</h3><p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Code par défaut : <strong>12345</strong></p><button class="btn-primary" onclick="om('pin-change-overlay')">Changer le code admin</button></div>
+</div>
+</main>
+<div id="toast"></div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────
+var firebaseConfig = {
+  apiKey: "AIzaSyDstmWnIwxHfgQLc-Ri9Z9mbphzax1rx6s",
+  authDomain: "taches-famille-e6d1b.firebaseapp.com",
+  databaseURL: "https://taches-famille-e6d1b-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "taches-famille-e6d1b",
+  storageBucket: "taches-famille-e6d1b.firebasestorage.app",
+  messagingSenderId: "208935613716",
+  appId: "1:208935613716:web:dbbeb6708fa5121217be01"
+};
+firebase.initializeApp(firebaseConfig);
+var DB = firebase.database();
+var REF = DB.ref('famille');
+
+function toArr(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  return Object.values(v);
+}
+function normTask(t) {
+  return Object.assign({}, t, { memberId: t.memberId ? t.memberId : null });
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────────
+function defaultData() {
+  return {
+    members:[
+      {id:1,name:'Alex', color:'#378ADD',initials:'AL',isAdmin:true, weeklyGoal:80},
+      {id:2,name:'Maman',color:'#D4537E',initials:'MA',isAdmin:true, weeklyGoal:80},
+      {id:3,name:'Max',  color:'#1D9E75',initials:'MX',isAdmin:false,weeklyGoal:50},
+      {id:4,name:'Célia',color:'#7F77DD',initials:'CE',isAdmin:false,weeklyGoal:40}
+    ],
+    tasks:[
+      {id:1,name:"Passer l'aspirateur",memberId:null,freq:'weekly',pts:15,penalty:-7, done:false,overdue:false,doneAt:null,desc:''},
+      {id:2,name:'Faire la vaisselle', memberId:null,freq:'daily', pts:8, penalty:-4, done:false,overdue:false,doneAt:null,desc:'Après chaque repas'},
+      {id:3,name:'Arroser les plantes',memberId:null,freq:'weekly',pts:5, penalty:-2, done:false,overdue:false,doneAt:null,desc:''},
+      {id:4,name:'Sortir les poubelles',memberId:null,freq:'weekly',pts:10,penalty:-5,done:false,overdue:false,doneAt:null,desc:''},
+      {id:5,name:'Faire les courses',  memberId:2,   freq:'weekly',pts:20,penalty:-10,done:true,overdue:false,doneAt:new Date(Date.now()-7200000).toISOString(),desc:''},
+      {id:6,name:'Préparer le dîner',  memberId:1,   freq:'daily', pts:12,penalty:-6, done:false,overdue:true, doneAt:null,desc:''},
+      {id:7,name:'Laver le linge',     memberId:2,   freq:'weekly',pts:10,penalty:-5, done:true, overdue:false,doneAt:new Date(Date.now()-18000000).toISOString(),desc:''},
+      {id:8,name:'Ranger sa chambre',  memberId:4,   freq:'daily', pts:6, penalty:-3, done:false,overdue:false,doneAt:null,desc:''},
+      {id:9,name:'Nettoyer le four',   memberId:null,freq:'occasional',pts:25,penalty:0,done:false,overdue:false,doneAt:null,desc:"Produit sous l'évier"}
+    ],
+    history:[
+      {id:101,memberId:2,pts:20,doneAt:new Date(Date.now()-7200000).toISOString(),taskId:5,type:'task'},
+      {id:102,memberId:2,pts:10,doneAt:new Date(Date.now()-18000000).toISOString(),taskId:7,type:'task'}
+    ],
+    bonusLog:[], notifs:[], adminPin:'12345'
+  };
+}
+
+var members=[], tasks=[], history=[], bonusLog=[], notifs=[], adminPin='12345';
+var CU=null, PID=null, CP='week', isSaving=false;
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+function initApp() {
+  REF.once('value').then(function(snap) {
+    var d = snap.val();
+    if (d) {
+      members  = toArr(d.members);
+      tasks    = toArr(d.tasks).map(normTask);
+      history  = toArr(d.history);
+      bonusLog = toArr(d.bonusLog);
+      notifs   = toArr(d.notifs);
+      adminPin = d.adminPin || '12345';
+    } else {
+      var def = defaultData();
+      members=def.members; tasks=def.tasks; history=def.history;
+      bonusLog=def.bonusLog; notifs=def.notifs; adminPin=def.adminPin;
+      REF.set({members:members,tasks:tasks,history:history,bonusLog:bonusLog,notifs:notifs,adminPin:adminPin});
+    }
+    document.getElementById('app-loader').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    renderLS();
+    // Listen for remote changes
+    REF.on('value', function(snap) {
+      if (isSaving) return;
+      var d = snap.val(); if (!d) return;
+      members  = toArr(d.members);
+      tasks    = toArr(d.tasks).map(normTask);
+      history  = toArr(d.history);
+      bonusLog = toArr(d.bonusLog);
+      notifs   = toArr(d.notifs);
+      adminPin = d.adminPin || adminPin;
+      if (CU) { CU = members.find(function(m){return m.id===CU.id;})||CU; renderAll(); }
+      showSyncPulse();
+    });
+  }).catch(function(e) {
+    document.getElementById('loader-msg').textContent = 'Erreur Firebase : ' + e.message;
+    document.querySelector('.loader-dots').style.display = 'none';
+  });
+}
+
+function saveD() {
+  isSaving = true;
+  showSyncSaving();
+  REF.set({members:members,tasks:tasks,history:history,bonusLog:bonusLog,notifs:notifs,adminPin:adminPin})
+    .then(function(){ isSaving=false; showSyncDone(); })
+    .catch(function(e){ isSaving=false; console.error('Save error',e); });
+}
+
+function showSyncSaving() { var i=document.getElementById('sync-ind'); if(!i||!CU)return; i.style.display='flex'; document.getElementById('sync-dot').classList.add('syncing'); document.getElementById('sync-txt').textContent='Sauvegarde...'; }
+function showSyncDone()   { var i=document.getElementById('sync-ind'); if(!i)return; document.getElementById('sync-dot').classList.remove('syncing'); document.getElementById('sync-txt').textContent='Synchronisé'; setTimeout(function(){if(!isSaving)i.style.display='none';},2000); }
+function showSyncPulse()  { var i=document.getElementById('sync-ind'); if(!i||!CU)return; i.style.display='flex'; document.getElementById('sync-dot').classList.remove('syncing'); document.getElementById('sync-txt').textContent='Mis à jour'; setTimeout(function(){if(!isSaving)i.style.display='none';},2000); }
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────
+function addN(toId, icon, msg) {
+  notifs.push({id:Date.now()+Math.random(), toId:toId, icon:icon, msg:msg, at:new Date().toISOString(), read:false});
+  saveD();
+  if (CU && CU.id===toId) { renderBell(); sendBN(icon+' '+msg); }
+}
+function reqNP() { if('Notification' in window && Notification.permission==='default') Notification.requestPermission(); }
+function sendBN(body) { if(!('Notification' in window)||Notification.permission!=='granted') return; try{ new Notification('Tâches de la famille',{body:body}); }catch(e){} }
+function urCount() { if(!CU) return 0; return notifs.filter(function(n){return n.toId===CU.id&&!n.read;}).length; }
+function renderBell() {
+  var btn=document.getElementById('bell-btn'), badge=document.getElementById('bell-badge');
+  if(!btn||!CU) return;
+  btn.style.display='flex';
+  var c=urCount();
+  if(c>0){badge.textContent=c>9?'9+':String(c); badge.classList.remove('hidden');}
+  else badge.classList.add('hidden');
+}
+function renderNP() {
+  if(!CU) return;
+  var mine=notifs.filter(function(n){return n.toId===CU.id;}).slice().reverse();
+  var el=document.getElementById('nbody');
+  if(!mine.length){el.innerHTML='<div class="notif-empty">Aucune notification.</div>';return;}
+  el.innerHTML=mine.map(function(n){
+    var dt=new Date(n.at);
+    var ts=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return '<div class="notif-item'+(n.read?'':' unread')+'" onclick="markRead('+n.id+')"><div class="notif-ico">'+n.icon+'</div><div class="notif-cnt"><div class="notif-msg">'+esc(n.msg)+'</div><div class="notif-time">'+ts+'</div></div></div>';
+  }).join('');
+}
+function toggleNotif(){ var p=document.getElementById('npanel'),b=document.getElementById('nbackdrop'); if(p.classList.contains('hidden')){p.classList.remove('hidden');b.classList.remove('hidden');renderNP();}else closeNotif(); }
+function closeNotif(){ document.getElementById('npanel').classList.add('hidden'); document.getElementById('nbackdrop').classList.add('hidden'); }
+function markRead(id){ var n=notifs.find(function(x){return x.id===id;}); if(n){n.read=true;saveD();renderBell();renderNP();} }
+function markAllRead(){ if(!CU)return; notifs.filter(function(n){return n.toId===CU.id;}).forEach(function(n){n.read=true;}); saveD();renderBell();renderNP(); }
+
+// ── SESSION ───────────────────────────────────────────────────────────────
+function tryLogin(mid) {
+  var m=members.find(function(x){return x.id===mid;}); if(!m) return;
+  if(m.isAdmin){
+    PID=mid;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('pin-screen').classList.remove('hidden');
+    document.getElementById('pin-title').textContent='Code pour '+m.name;
+    document.getElementById('pin-error').textContent='';
+    ['p0','p1','p2','p3','p4'].forEach(function(id){document.getElementById(id).value='';});
+    document.getElementById('p0').focus();
+  } else { finishLogin(mid); }
+}
+function pinInput(idx) {
+  var val=document.getElementById('p'+idx).value;
+  if(val&&idx<4) document.getElementById('p'+(idx+1)).focus();
+  if(idx===4){
+    var pin=['p0','p1','p2','p3','p4'].map(function(id){return document.getElementById(id).value;}).join('');
+    if(pin===adminPin){ document.getElementById('pin-screen').classList.add('hidden'); finishLogin(PID); }
+    else{ document.getElementById('pin-error').textContent='Code incorrect.'; setTimeout(function(){ ['p0','p1','p2','p3','p4'].forEach(function(id){document.getElementById(id).value=''; }); document.getElementById('p0').focus(); },600); }
+  }
+}
+function cancelPin(){ document.getElementById('pin-screen').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); PID=null; }
+function finishLogin(mid) {
+  CU=members.find(function(m){return m.id===mid;});
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('pin-screen').classList.add('hidden');
+  var av=document.getElementById('hav');
+  av.style.cssText='background:'+CU.color+'22;color:'+CU.color+';width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;';
+  av.textContent=CU.initials;
+  document.getElementById('hun').textContent=CU.name+(CU.isAdmin?' 👑':'');
+  document.getElementById('tab-add-btn').style.display=CU.isAdmin?'':'none';
+  document.getElementById('tab-settings-btn').style.display=CU.isAdmin?'':'none';
+  document.getElementById('goal-edit-btn').style.display=CU.isAdmin?'':'none';
+  document.getElementById('mine-label').textContent=CU.isAdmin?'Toutes les tâches affectées':'Tâches de '+CU.name;
+  document.getElementById('tab-mine-btn').textContent=CU.isAdmin?'Tâches affectées':'Mes tâches';
+  renderAll(); renderBell(); reqNP(); setTimeout(renderCharts,120);
+}
+function logout(){ CU=null; closeNotif(); document.getElementById('bell-btn').style.display='none'; document.getElementById('sync-ind').style.display='none'; document.getElementById('login-screen').classList.remove('hidden'); switchTab('dashboard'); }
+function saveNewPin(){
+  var old=document.getElementById('old-pin').value, np=document.getElementById('new-pin').value, cp=document.getElementById('conf-pin').value, err=document.getElementById('pin-chg-err');
+  if(old!==adminPin){err.textContent='Code actuel incorrect.';return;}
+  if(!/^\d{5}$/.test(np)){err.textContent='5 chiffres requis.';return;}
+  if(np!==cp){err.textContent='Codes différents.';return;}
+  adminPin=np; saveD(); cm('pin-change-overlay'); ['old-pin','new-pin','conf-pin'].forEach(function(id){document.getElementById(id).value='';}); err.textContent=''; showToast('Code modifié !');
+}
+function renderLS(){ document.getElementById('login-grid').innerHTML=members.map(function(m){ return '<div class="login-card" onclick="tryLogin('+m.id+')"><div class="login-avatar" style="background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><div class="login-name">'+m.name+'</div><span class="login-role '+(m.isAdmin?'role-admin':'role-member')+'">'+(m.isAdmin?'👑 Admin':'Membre')+'</span></div>'; }).join(''); }
+
+// ── DATE ──────────────────────────────────────────────────────────────────
+function getMon(d){var dt=new Date(d);var day=dt.getDay();dt.setDate(dt.getDate()+(day===0?-6:1-day));dt.setHours(0,0,0,0);return dt;}
+function getSun(d){var m=getMon(d);var s=new Date(m);s.setDate(m.getDate()+6);s.setHours(23,59,59,999);return s;}
+function getMS(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+function getME(d){return new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59,999);}
+function fmtDT(iso){if(!iso)return'';var d=new Date(iso);return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
+function fmtWR(){var n=new Date(),m=getMon(n),s=getSun(n),f=function(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});};return'Lun. '+f(m)+' \u2192 Dim. '+f(s);}
+function fmtML(){return new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});}
+
+// ── PERIOD ────────────────────────────────────────────────────────────────
+function setPeriod(p){CP=p;document.querySelectorAll('.period-btn').forEach(function(b,i){b.classList.toggle('active',['week','month','all'][i]===p);});renderDB();renderCharts();}
+function hfP(){var n=new Date();if(CP==='week'){var s=getMon(n),e=getSun(n);return history.filter(function(h){var d=new Date(h.doneAt);return d>=s&&d<=e;});}if(CP==='month'){var s=getMS(n),e=getME(n);return history.filter(function(h){var d=new Date(h.doneAt);return d>=s&&d<=e;});}return history;}
+function ptsM(mid){return hfP().filter(function(h){return h.memberId===mid;}).reduce(function(s,h){return s+h.pts;},0);}
+function tasksM(mid){return hfP().filter(function(h){return h.memberId===mid&&h.type==='task';}).length;}
+function wkPts(mid){var n=new Date(),s=getMon(n),e=getSun(n);return history.filter(function(h){return h.memberId===mid&&new Date(h.doneAt)>=s&&new Date(h.doneAt)<=e;}).reduce(function(a,h){return a+h.pts;},0);}
+
+// ── GOAL ──────────────────────────────────────────────────────────────────
+function openGoalModal(){var sel=document.getElementById('goal-mbr-sel');sel.innerHTML=members.map(function(m){return'<option value="'+m.id+'">'+m.name+' — '+(m.weeklyGoal||0)+' pts</option>';}).join('');sel.onchange=function(){var m=members.find(function(x){return x.id===parseInt(sel.value);});if(m)document.getElementById('goal-pts-inp').value=m.weeklyGoal||'';};if(CU){sel.value=CU.id;sel.dispatchEvent(new Event('change'));}om('goal-overlay');}
+function saveGoal(){var mid=parseInt(document.getElementById('goal-mbr-sel').value),pts=parseInt(document.getElementById('goal-pts-inp').value);if(!mid||!pts||pts<1){showToast('Invalide.');return;}var m=members.find(function(x){return x.id===mid;});m.weeklyGoal=pts;saveD();cm('goal-overlay');renderDB();showToast('Objectif mis à jour !');}
+function renderGoalBanner(){
+  if(!CU)return;
+  var pts=wkPts(CU.id),goal=CU.weeklyGoal||0;
+  var bn=document.getElementById('goal-banner'),ic=document.getElementById('goal-icon'),ti=document.getElementById('goal-title'),su=document.getElementById('goal-sub'),ba=document.getElementById('goal-bar');
+  if(CP!=='week'||goal===0){bn.className='goal-banner g-neutral';ic.textContent='📊';ti.textContent=CP==='week'?'Aucun objectif':CP==='month'?'Vue mensuelle':'Vue globale';su.textContent=CU.name+' — '+ptsM(CU.id)+' pts';ba.style.width='0%';return;}
+  var pct=Math.min(100,Math.round(pts/goal*100));ba.style.width=pct+'%';
+  if(pts>=goal){bn.className='goal-banner g-reward';ic.textContent='🏆';ti.textContent='Objectif atteint ! '+pts+' / '+goal+' pts';su.textContent='Bravo '+CU.name+' !';ba.style.background='var(--accent)';}
+  else if(pct>=60){bn.className='goal-banner g-warn';ic.textContent='💪';ti.textContent=pts+' / '+goal+' pts';su.textContent='Plus que '+(goal-pts)+' pts !';ba.style.background='var(--warn)';}
+  else{bn.className='goal-banner g-danger';ic.textContent='⚠️';ti.textContent=pts+' / '+goal+' pts';su.textContent='Encore '+(goal-pts)+' pts manquants';ba.style.background='var(--danger)';}
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+function renderDB(){
+  if(!CU)return;
+  var h=hfP();
+  document.getElementById('m-done').textContent=h.filter(function(x){return x.type==='task';}).length;
+  document.getElementById('m-pts').textContent=h.reduce(function(s,x){return s+x.pts;},0);
+  document.getElementById('m-pool').textContent=tasks.filter(function(t){return !t.memberId&&!t.done;}).length;
+  document.getElementById('m-late').textContent=tasks.filter(function(t){return t.overdue&&!t.done;}).length;
+  document.getElementById('period-label').textContent={week:fmtWR(),month:fmtML(),all:'Depuis le début'}[CP];
+  document.getElementById('bar-title').textContent='Points par membre — '+(CP==='week'?'semaine':CP==='month'?'mois':'total');
+  renderGoalBanner(); renderMG();
+}
+function renderMG(){
+  var pa=members.map(function(m){return ptsM(m.id);}),mx=Math.max.apply(null,pa.concat([1]));
+  document.getElementById('member-grid').innerHTML=members.map(function(m,i){
+    var wp=wkPts(m.id),goal=m.weeklyGoal||0;
+    var sh=goal>0&&CP==='week'?(wp>=goal?'<div class="member-goal-status" style="color:var(--accent-dark);">🏆 Atteint</div>':'<div class="member-goal-status" style="color:var(--danger-dark);">⚡ '+(goal-wp)+' pts</div>'):'';
+    return'<div class="member-card"><div class="avatar" style="background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><div class="member-name">'+m.name+(m.isAdmin?' 👑':'')+'</div><div class="member-sub">'+pa[i]+' pts · '+tasksM(m.id)+' tâches</div><div class="score-bar-bg"><div class="score-bar" style="width:'+Math.round(pa[i]/mx*100)+'%;background:'+m.color+';"></div></div>'+sh+'</div>';
+  }).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────
+var bC,pC,mC,lC;
+function renderCharts(){rBC();rPC();rMC();}
+function rBC(){var n=members.map(function(m){return m.name;}),p=members.map(function(m){return ptsM(m.id);}),c=members.map(function(m){return m.color;});if(bC)bC.destroy();bC=new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:n,datasets:[{label:'Points',data:p,backgroundColor:c.map(function(x){return x+'bb';}),borderColor:c,borderWidth:1.5,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(128,128,128,0.08)'}},x:{grid:{display:false}}}}});}
+function rPC(){var n=members.map(function(m){return m.name;}),c=members.map(function(m){return m.color;}),t=members.map(function(m){return tasks.filter(function(x){return x.memberId&&x.memberId===m.id;}).length;});document.getElementById('pie-legend').innerHTML=members.map(function(m,i){return'<div class="pie-legend-item"><div class="pie-dot" style="background:'+m.color+';"></div>'+m.name+' — '+t[i]+'</div>';}).join('');if(pC)pC.destroy();pC=new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:n,datasets:[{data:t,backgroundColor:c.map(function(x){return x+'cc';}),borderColor:c,borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}});}
+function rMC(){var now=new Date(),ms=getMS(now);if(mC)mC.destroy();var wl=['Sem.1','Sem.2','Sem.3','Sem.4'];var ds=members.map(function(m){return{label:m.name,data:wl.map(function(_,wi){var wS=new Date(ms);wS.setDate(ms.getDate()+wi*7);var wE=new Date(wS);wE.setDate(wS.getDate()+6);wE.setHours(23,59,59,999);return history.filter(function(h){return h.memberId===m.id&&new Date(h.doneAt)>=wS&&new Date(h.doneAt)<=wE;}).reduce(function(s,h){return s+h.pts;},0);}),borderColor:m.color,backgroundColor:m.color+'22',fill:false,tension:0.35,pointRadius:4,pointBackgroundColor:m.color};});mC=new Chart(document.getElementById('monthChart'),{type:'line',data:{labels:wl,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}});document.getElementById('month-legend').innerHTML=members.map(function(m){return'<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:'+m.color+';"></span>'+m.name+'</span>';}).join('');}
+function rLC(){if(lC)lC.destroy();var wl=['Sem.1','Sem.2','Sem.3','Sem.4'];lC=new Chart(document.getElementById('lineChart'),{type:'line',data:{labels:wl,datasets:members.map(function(m){return{label:m.name,data:[Math.round(ptsM(m.id)*0.2),Math.round(ptsM(m.id)*0.45),Math.round(ptsM(m.id)*0.75),ptsM(m.id)],borderColor:m.color,backgroundColor:m.color+'22',fill:false,tension:0.35,pointRadius:4,pointBackgroundColor:m.color};})},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scores:{y:{beginAtZero:true},x:{grid:{display:false}}}}});document.getElementById('line-legend').innerHTML=members.map(function(m){return'<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:'+m.color+';"></span>'+m.name+'</span>';}).join('');}
+
+// ── TASK CARDS ────────────────────────────────────────────────────────────
+function gM(id){return members.find(function(m){return m.id===id;});}
+var FQL={daily:'Quotidienne',weekly:'Hebdomadaire',monthly:'Mensuelle',occasional:'Occasionnelle'};
+var FQC={daily:'tag-daily',weekly:'tag-neutral',monthly:'tag-neutral',occasional:'tag-occasional'};
+function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function buildCard(t,ctx){
+  var st=t.overdue&&!t.done?'<span class="tag tag-danger">En retard</span>':t.done?'<span class="tag tag-ok">Fait</span>':ctx==='pool'?'<span class="tag tag-pool">Disponible</span>':'<span class="tag tag-neutral">À faire</span>';
+  var fq='<span class="tag '+(FQC[t.freq]||'tag-neutral')+'">'+(FQL[t.freq]||t.freq)+'</span>';
+  var am=t.memberId?gM(t.memberId):null;
+  var mt=am?'<span style="font-size:12px;font-weight:500;color:'+am.color+';">'+am.name+'</span><span style="font-size:12px;color:var(--text3);">·</span>':'';
+  var dsc=t.desc?'<div class="task-desc">'+esc(t.desc)+'</div>':'';
+  var ts=(t.freq==='daily'&&t.done&&t.doneAt)?'<div class="timestamp">🕐 '+fmtDT(t.doneAt)+'</div>':'';
+  var act='';
+  if(!t.done&&CU){
+    if(ctx==='pool'){
+      act+='<button class="action-btn btn-claim" onclick="claimTask('+t.id+')">✋ Prendre</button>';
+      if(CU.isAdmin) act+=' <button class="action-btn btn-assign" onclick="togglePanel('+t.id+')">Assigner ▾</button><div class="assign-panel" id="ap-'+t.id+'"><select class="assign-select" id="as-'+t.id+'">'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('')+'</select><button class="assign-confirm" onclick="assignTask('+t.id+')">Confirmer</button></div>';
+    } else if(ctx==='mine'&&CU.isAdmin) {
+      act+='<button class="action-btn btn-unassign" onclick="unassignTask('+t.id+')">Retirer</button>';
+    }
+  }
+  if(CU&&CU.isAdmin) act+=' <button class="action-btn btn-edit-task" onclick="openET('+t.id+')">✏️</button>';
+  return '<div class="task-item'+(t.done?' done':'')+(t.overdue&&!t.done?' overdue':'')+'"><div class="check-btn'+(t.done?' checked':'')+'" onclick="toggleTask('+t.id+',\''+ctx+'\')"></div><div class="task-info"><div class="task-name">'+esc(t.name)+'</div>'+dsc+'<div class="task-meta">'+mt+fq+st+'</div>'+ts+(act?'<div class="task-actions">'+act+'</div>':'')+'</div><div class="pts-col"><span class="pts-badge pts-pos">+'+t.pts+'</span>'+(t.penalty?'<span class="pts-badge pts-neg">'+t.penalty+'</span>':'')+'</div></div>';
+}
+function renderPL(){var pool=tasks.filter(function(t){return !t.memberId;}),el=document.getElementById('pool-list');if(!pool.length){el.innerHTML='<div class="empty-state"><div class="emoji">🎉</div><p>Toutes les tâches ont été prises !</p></div>';return;}el.innerHTML=pool.map(function(t){return buildCard(t,'pool');}).join('');}
+function renderML(){if(!CU)return;var mine=CU.isAdmin?tasks.filter(function(t){return !!t.memberId;}):tasks.filter(function(t){return t.memberId===CU.id;});var el=document.getElementById('mine-list');if(!mine.length){el.innerHTML='<div class="empty-state"><div class="emoji">😌</div><p>Aucune tâche pour le moment.</p></div>';return;}el.innerHTML=mine.map(function(t){return buildCard(t,'mine');}).join('');}
+function renderLB(){var sorted=members.slice().sort(function(a,b){return ptsM(b.id)-ptsM(a.id);}),medals=['🥇','🥈','🥉'];document.getElementById('leaderboard').innerHTML=sorted.map(function(m,i){var p=ptsM(m.id),goal=m.weeklyGoal||0;var badge=goal>0?(p>=goal?'<span class="tag tag-ok" style="font-size:10px;">🏆</span>':'<span class="tag tag-danger" style="font-size:10px;">⚡</span>'):'';return'<div class="lb-row"><div class="lb-rank">'+(medals[i]||(i+1)+'.')+'</div><div class="avatar" style="width:38px;height:38px;font-size:13px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><div class="lb-info"><div class="lb-name">'+m.name+(m.isAdmin?' 👑':'')+' '+badge+'</div><div class="lb-tasks">'+tasksM(m.id)+' tâches · objectif : '+(goal||'—')+'</div></div><div class="lb-pts">'+p+' pts</div></div>';}).join('');}
+function renderAS(){['new-assign-mbr','edit-task-member'].forEach(function(id){var sel=document.getElementById(id);if(!sel)return;sel.innerHTML='<option value="">Pool</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');});var bs=document.getElementById('bonus-mbr');if(bs)bs.innerHTML='<option value="">Choisir...</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');}
+function renderBL(){var el=document.getElementById('bonus-log');if(!el)return;if(!bonusLog.length){el.innerHTML='<div class="empty-state" style="padding:20px 0;"><p>Aucun historique.</p></div>';return;}el.innerHTML=bonusLog.slice().reverse().map(function(b){var m=gM(b.memberId),isP=b.pts>=0;return'<div class="bonus-entry"><div class="bonus-entry-header"><div class="avatar" style="width:28px;height:28px;font-size:10px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><strong style="font-size:13px;">'+m.name+'</strong><span class="bonus-entry-pts" style="color:'+(isP?'var(--accent-dark)':'var(--danger-dark)')+';">'+(isP?'+':'')+b.pts+' pts</span></div>'+(b.note?'<div class="bonus-entry-note">'+esc(b.note)+'</div>':'')+'<div class="bonus-entry-meta">'+fmtDT(b.at)+' · par '+b.admin+'</div></div>';}).join('');}
+function renderAll(){renderDB();renderPL();renderML();renderLB();renderAS();renderLS();renderBL();renderBell();}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────
+function toggleTask(id,ctx){
+  var t=tasks.find(function(x){return x.id===id;});if(!t)return;
+  if(ctx==='mine'&&CU&&t.memberId!==CU.id&&!CU.isAdmin){showToast('Ce n\u2019est pas votre t\u00e2che !');return;}
+  t.done=!t.done;
+  if(t.done){
+    t.doneAt=new Date().toISOString();
+    var mid=t.memberId||(CU?CU.id:null);
+    if(mid){if(!t.memberId)t.memberId=mid;history.push({id:Date.now(),memberId:mid,pts:t.pts,doneAt:t.doneAt,taskId:t.id,type:'task'});showToast('+'+t.pts+' pts pour '+gM(mid).name+' ! 🎉');}
+  } else {
+    t.doneAt=null;
+    var idx=history.slice().reverse().findIndex(function(h){return h.taskId===t.id&&h.type==='task';});
+    if(idx!==-1)history.splice(history.length-1-idx,1);
+  }
+  renderAll(); saveD();
+  if(document.getElementById('tab-dashboard').classList.contains('visible')) renderCharts();
+}
+function claimTask(id){if(!CU)return;var t=tasks.find(function(x){return x.id===id;});if(!t)return;t.memberId=CU.id;showToast('Tâche prise !');renderAll();saveD();}
+function togglePanel(id){var p=document.getElementById('ap-'+id);if(p)p.classList.toggle('open');}
+function assignTask(id){var sel=document.getElementById('as-'+id);if(!sel)return;var mid=parseInt(sel.value);var t=tasks.find(function(x){return x.id===id;});if(!t)return;t.memberId=mid;addN(mid,'📋','Nouvelle tâche assignée : '+t.name);showToast('Assignée à '+gM(mid).name+' !');renderAll();}
+function unassignTask(id){var t=tasks.find(function(x){return x.id===id;});if(!t)return;t.memberId=null;t.done=false;t.doneAt=null;showToast('Remise dans le pool.');renderAll();saveD();}
+function openET(id){var t=tasks.find(function(x){return x.id===id;});if(!t)return;document.getElementById('edit-task-id').value=id;document.getElementById('edit-prev-mid').value=t.memberId||'';document.getElementById('edit-task-name').value=t.name;document.getElementById('edit-task-freq').value=t.freq;renderAS();document.getElementById('edit-task-member').value=t.memberId||'';document.getElementById('edit-task-pts').value=t.pts;document.getElementById('edit-task-penalty').value=t.penalty||'';document.getElementById('edit-task-desc').value=t.desc||'';cc('edit-task-desc','edc');om('edit-task-overlay');}
+function saveEditTask(){var id=parseInt(document.getElementById('edit-task-id').value);var prevMid=parseInt(document.getElementById('edit-prev-mid').value)||0;var t=tasks.find(function(x){return x.id===id;});if(!t)return;t.name=document.getElementById('edit-task-name').value.trim()||t.name;t.freq=document.getElementById('edit-task-freq').value;var mv=document.getElementById('edit-task-member').value;t.memberId=mv?parseInt(mv):null;t.pts=parseInt(document.getElementById('edit-task-pts').value)||t.pts;t.penalty=parseInt(document.getElementById('edit-task-penalty').value)||0;t.desc=document.getElementById('edit-task-desc').value.slice(0,1000);if(t.memberId&&t.memberId!==prevMid)addN(t.memberId,'📋','Tâche assignée : '+t.name);cm('edit-task-overlay');renderAll();saveD();showToast('Modifiée ✅');}
+function addTask(){if(!CU||!CU.isAdmin)return;var name=document.getElementById('new-name').value.trim();var freq=document.getElementById('new-freq').value;var mv=document.getElementById('new-assign-mbr').value;var mid=mv?parseInt(mv):null;var pts=parseInt(document.getElementById('new-pts').value)||10;var penalty=parseInt(document.getElementById('new-penalty').value)||0;var desc=document.getElementById('new-desc').value.slice(0,1000);if(!name){showToast('Entrez un nom.');return;}tasks.push({id:Date.now(),name:name,memberId:mid,freq:freq,pts:pts,penalty:Math.min(0,penalty),done:false,overdue:false,doneAt:null,desc:desc});if(mid)addN(mid,'📋','Nouvelle tâche : '+name);['new-name','new-pts','new-penalty','new-desc'].forEach(function(id){document.getElementById(id).value='';});cc('new-desc','ndc');renderAll();saveD();showToast('Tâche ajoutée !');switchTab(mid?'mine':'pool');}
+function addMember(){if(!CU||!CU.isAdmin)return;var name=document.getElementById('new-mbr-name').value.trim(),color=document.getElementById('new-mbr-color').value;if(!name){showToast('Entrez un prénom.');return;}members.push({id:Date.now(),name:name,color:color,initials:name.slice(0,2).toUpperCase(),isAdmin:false,weeklyGoal:40});document.getElementById('new-mbr-name').value='';renderAll();saveD();showToast(name+' ajouté(e) !');}
+function openBonusModal(){renderAS();om('bonus-overlay');}
+function applyBonus(){if(!CU||!CU.isAdmin)return;var mid=parseInt(document.getElementById('bonus-mbr').value);var pts=parseInt(document.getElementById('bonus-pts').value);var note=document.getElementById('bonus-note').value.slice(0,500);if(!mid){showToast('Choisissez un membre.');return;}if(!pts||pts===0){showToast('Points invalides.');return;}var now=new Date().toISOString();history.push({id:Date.now(),memberId:mid,pts:pts,doneAt:now,taskId:null,type:'bonus'});bonusLog.push({id:Date.now(),memberId:mid,pts:pts,note:note,at:now,admin:CU.name});var icon=pts>=0?'🎉':'⚡';var motif=note?' — '+note:'';addN(mid,icon,pts>=0?'Bonus : +'+pts+' pts'+motif:'Malus : '+pts+' pts'+motif);document.getElementById('bonus-pts').value='';document.getElementById('bonus-note').value='';cc('bonus-note','bnc');cm('bonus-overlay');renderAll();if(document.getElementById('tab-dashboard').classList.contains('visible'))renderCharts();}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function om(id){document.getElementById(id).classList.remove('hidden');}
+function cm(id){document.getElementById(id).classList.add('hidden');}
+function cc(iid,cid){var el=document.getElementById(iid),cnt=document.getElementById(cid);if(el&&cnt)cnt.textContent=el.value.length;}
+document.querySelectorAll('.overlay').forEach(function(ov){ov.addEventListener('click',function(e){if(e.target===ov)ov.classList.add('hidden');});});
+var TABS=['dashboard','pool','mine','add','ranking','settings'];
+function switchTab(tab){document.querySelectorAll('.nav-tab').forEach(function(t,i){t.classList.toggle('active',TABS[i]===tab);});document.querySelectorAll('.section').forEach(function(s){s.classList.remove('visible');});document.getElementById('tab-'+tab).classList.add('visible');if(tab==='dashboard'){renderDB();renderCharts();}if(tab==='ranking'){renderLB();rLC();}if(tab==='pool')renderPL();if(tab==='mine')renderML();if(tab==='settings')renderBL();}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
+
+// ── START ─────────────────────────────────────────────────────────────────
+initApp();
+</script>
+</body>
+</html>
