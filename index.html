@@ -397,7 +397,7 @@ function toArr(v) {
   return Object.values(v);
 }
 function normTask(t) {
-  return Object.assign({}, t, { memberId: t.memberId ? parseInt(t.memberId) : null });
+  return Object.assign({}, t, { id: parseInt(t.id), memberId: t.memberId ? parseInt(t.memberId) : null });
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -461,7 +461,7 @@ function initApp() {
       bonusLog = toArr(d.bonusLog);
       notifs   = toArr(d.notifs);
       adminPin = d.adminPin || adminPin;
-      if (CU) { CU = members.find(function(m){return m.id===CU.id;})||CU; renderAll(); }
+      if (CU) { CU = members.find(function(m){return parseInt(m.id)===parseInt(CU.id);})||CU; renderAll(); }
       showSyncPulse();
     });
   }).catch(function(e) {
@@ -539,7 +539,7 @@ function pinInput(idx) {
 }
 function cancelPin(){ document.getElementById('pin-screen').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); PID=null; }
 function finishLogin(mid) {
-  CU=members.find(function(m){return m.id===mid;});
+  CU=members.find(function(m){return parseInt(m.id)===parseInt(mid);});
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('pin-screen').classList.add('hidden');
   var av=document.getElementById('hav');
@@ -647,7 +647,7 @@ function buildCard(t,ctx){
   return '<div class="task-item'+(t.done?' done':'')+(t.overdue&&!t.done?' overdue':'')+'"><div class="check-btn'+(t.done?' checked':'')+'" onclick="toggleTask('+t.id+',\''+ctx+'\')"></div><div class="task-info"><div class="task-name">'+esc(t.name)+'</div>'+dsc+'<div class="task-meta">'+mt+fq+st+'</div>'+ts+(act?'<div class="task-actions">'+act+'</div>':'')+'</div><div class="pts-col"><span class="pts-badge pts-pos">+'+t.pts+'</span>'+(t.penalty?'<span class="pts-badge pts-neg">'+t.penalty+'</span>':'')+'</div></div>';
 }
 function renderPL(){var pool=tasks.filter(function(t){return !t.memberId;}),el=document.getElementById('pool-list');if(!pool.length){el.innerHTML='<div class="empty-state"><div class="emoji">🎉</div><p>Toutes les tâches ont été prises !</p></div>';return;}el.innerHTML=pool.map(function(t){return buildCard(t,'pool');}).join('');}
-function renderML(){if(!CU)return;var mine=CU.isAdmin?tasks.filter(function(t){return !!t.memberId;}):tasks.filter(function(t){return t.memberId===CU.id;});var el=document.getElementById('mine-list');if(!mine.length){el.innerHTML='<div class="empty-state"><div class="emoji">😌</div><p>Aucune tâche pour le moment.</p></div>';return;}el.innerHTML=mine.map(function(t){return buildCard(t,'mine');}).join('');}
+function renderML(){if(!CU)return;var mine=CU.isAdmin?tasks.filter(function(t){return !!t.memberId;}):tasks.filter(function(t){return parseInt(t.memberId)===parseInt(CU.id);});var el=document.getElementById('mine-list');if(!mine.length){el.innerHTML='<div class="empty-state"><div class="emoji">😌</div><p>Aucune tâche pour le moment.</p></div>';return;}el.innerHTML=mine.map(function(t){return buildCard(t,'mine');}).join('');}
 function renderLB(){var sorted=members.slice().sort(function(a,b){return ptsM(b.id)-ptsM(a.id);}),medals=['🥇','🥈','🥉'];document.getElementById('leaderboard').innerHTML=sorted.map(function(m,i){var p=ptsM(m.id),goal=m.weeklyGoal||0;var badge=goal>0?(p>=goal?'<span class="tag tag-ok" style="font-size:10px;">🏆</span>':'<span class="tag tag-danger" style="font-size:10px;">⚡</span>'):'';return'<div class="lb-row"><div class="lb-rank">'+(medals[i]||(i+1)+'.')+'</div><div class="avatar" style="width:38px;height:38px;font-size:13px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><div class="lb-info"><div class="lb-name">'+m.name+(m.isAdmin?' 👑':'')+' '+badge+'</div><div class="lb-tasks">'+tasksM(m.id)+' tâches · objectif : '+(goal||'—')+'</div></div><div class="lb-pts">'+p+' pts</div></div>';}).join('');}
 function renderAS(){['new-assign-mbr','edit-task-member'].forEach(function(id){var sel=document.getElementById(id);if(!sel)return;sel.innerHTML='<option value="">Pool</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');});var bs=document.getElementById('bonus-mbr');if(bs)bs.innerHTML='<option value="">Choisir...</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');}
 function renderBL(){var el=document.getElementById('bonus-log');if(!el)return;if(!bonusLog.length){el.innerHTML='<div class="empty-state" style="padding:20px 0;"><p>Aucun historique.</p></div>';return;}el.innerHTML=bonusLog.slice().reverse().map(function(b){var m=gM(b.memberId),isP=b.pts>=0;return'<div class="bonus-entry"><div class="bonus-entry-header"><div class="avatar" style="width:28px;height:28px;font-size:10px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><strong style="font-size:13px;">'+m.name+'</strong><span class="bonus-entry-pts" style="color:'+(isP?'var(--accent-dark)':'var(--danger-dark)')+';">'+(isP?'+':'')+b.pts+' pts</span></div>'+(b.note?'<div class="bonus-entry-note">'+esc(b.note)+'</div>':'')+'<div class="bonus-entry-meta">'+fmtDT(b.at)+' · par '+b.admin+'</div></div>';}).join('');}
@@ -660,7 +660,7 @@ function renderAll(){
 // ── ACTIONS ───────────────────────────────────────────────────────────────
 function toggleTask(id,ctx){
   var t=tasks.find(function(x){return x.id===id;});if(!t)return;
-  if(ctx==='mine'&&CU&&t.memberId!==CU.id&&!CU.isAdmin){showToast('Ce n\u2019est pas votre t\u00e2che !');return;}
+  if(ctx==='mine'&&CU&&parseInt(t.memberId)!==parseInt(CU.id)&&!CU.isAdmin){showToast('Ce n\u2019est pas votre t\u00e2che !');return;}
   t.done=!t.done;
   if(t.done){
     t.doneAt=new Date().toISOString();
