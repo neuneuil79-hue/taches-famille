@@ -397,7 +397,7 @@ function toArr(v) {
   return Object.values(v);
 }
 function normTask(t) {
-  return Object.assign({}, t, { memberId: t.memberId ? t.memberId : null });
+  return Object.assign({}, t, { memberId: t.memberId ? parseInt(t.memberId) : null });
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -436,9 +436,9 @@ function initApp() {
   REF.once('value').then(function(snap) {
     var d = snap.val();
     if (d) {
-      members  = toArr(d.members);
+      members  = toArr(d.members).map(function(m){ return Object.assign({}, m, {id: parseInt(m.id)}); });
       tasks    = toArr(d.tasks).map(normTask);
-      history  = toArr(d.history);
+      history  = toArr(d.history).map(function(h){ return Object.assign({}, h, {memberId: h.memberId ? parseInt(h.memberId) : null, pts: Number(h.pts)||0}); });
       bonusLog = toArr(d.bonusLog);
       notifs   = toArr(d.notifs);
       adminPin = d.adminPin || '12345';
@@ -455,9 +455,9 @@ function initApp() {
     REF.on('value', function(snap) {
       if (isSaving) return;
       var d = snap.val(); if (!d) return;
-      members  = toArr(d.members);
+      members  = toArr(d.members).map(function(m){ return Object.assign({}, m, {id: parseInt(m.id)}); });
       tasks    = toArr(d.tasks).map(normTask);
-      history  = toArr(d.history);
+      history  = toArr(d.history).map(function(h){ return Object.assign({}, h, {memberId: h.memberId ? parseInt(h.memberId) : null, pts: Number(h.pts)||0}); });
       bonusLog = toArr(d.bonusLog);
       notifs   = toArr(d.notifs);
       adminPin = d.adminPin || adminPin;
@@ -651,7 +651,11 @@ function renderML(){if(!CU)return;var mine=CU.isAdmin?tasks.filter(function(t){r
 function renderLB(){var sorted=members.slice().sort(function(a,b){return ptsM(b.id)-ptsM(a.id);}),medals=['🥇','🥈','🥉'];document.getElementById('leaderboard').innerHTML=sorted.map(function(m,i){var p=ptsM(m.id),goal=m.weeklyGoal||0;var badge=goal>0?(p>=goal?'<span class="tag tag-ok" style="font-size:10px;">🏆</span>':'<span class="tag tag-danger" style="font-size:10px;">⚡</span>'):'';return'<div class="lb-row"><div class="lb-rank">'+(medals[i]||(i+1)+'.')+'</div><div class="avatar" style="width:38px;height:38px;font-size:13px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><div class="lb-info"><div class="lb-name">'+m.name+(m.isAdmin?' 👑':'')+' '+badge+'</div><div class="lb-tasks">'+tasksM(m.id)+' tâches · objectif : '+(goal||'—')+'</div></div><div class="lb-pts">'+p+' pts</div></div>';}).join('');}
 function renderAS(){['new-assign-mbr','edit-task-member'].forEach(function(id){var sel=document.getElementById(id);if(!sel)return;sel.innerHTML='<option value="">Pool</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');});var bs=document.getElementById('bonus-mbr');if(bs)bs.innerHTML='<option value="">Choisir...</option>'+members.map(function(m){return'<option value="'+m.id+'">'+m.name+'</option>';}).join('');}
 function renderBL(){var el=document.getElementById('bonus-log');if(!el)return;if(!bonusLog.length){el.innerHTML='<div class="empty-state" style="padding:20px 0;"><p>Aucun historique.</p></div>';return;}el.innerHTML=bonusLog.slice().reverse().map(function(b){var m=gM(b.memberId),isP=b.pts>=0;return'<div class="bonus-entry"><div class="bonus-entry-header"><div class="avatar" style="width:28px;height:28px;font-size:10px;background:'+m.color+'22;color:'+m.color+';">'+m.initials+'</div><strong style="font-size:13px;">'+m.name+'</strong><span class="bonus-entry-pts" style="color:'+(isP?'var(--accent-dark)':'var(--danger-dark)')+';">'+(isP?'+':'')+b.pts+' pts</span></div>'+(b.note?'<div class="bonus-entry-note">'+esc(b.note)+'</div>':'')+'<div class="bonus-entry-meta">'+fmtDT(b.at)+' · par '+b.admin+'</div></div>';}).join('');}
-function renderAll(){renderDB();renderPL();renderML();renderLB();renderAS();renderLS();renderBL();renderBell();}
+function renderAll(){
+  renderDB();renderPL();renderML();renderLB();renderAS();renderLS();renderBL();renderBell();
+  if(document.getElementById('tab-dashboard').classList.contains('visible')) renderCharts();
+  if(document.getElementById('tab-ranking').classList.contains('visible')) rLC();
+}
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
 function toggleTask(id,ctx){
@@ -660,7 +664,7 @@ function toggleTask(id,ctx){
   t.done=!t.done;
   if(t.done){
     t.doneAt=new Date().toISOString();
-    var mid=t.memberId||(CU?CU.id:null);
+    var mid=t.memberId ? parseInt(t.memberId) : (CU ? parseInt(CU.id) : null);
     if(mid){if(!t.memberId)t.memberId=mid;history.push({id:Date.now(),memberId:mid,pts:t.pts,doneAt:t.doneAt,taskId:t.id,type:'task'});showToast('+'+t.pts+' pts pour '+gM(mid).name+' ! 🎉');}
   } else {
     t.doneAt=null;
